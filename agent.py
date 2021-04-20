@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
+import torch.optim as optim
 
 from buffer import ReplayBuffer
 from model import Actor, Crtic
 
 
 class RDPG:
-    def __init__(self, obs_dim, action_dim, gamma=0.98, buffer_size=100):
+    def __init__(self, obs_dim, action_dim, gamma=0.98, actor_lr=1e-4, critic_lr=1e-3, buffer_size=100):
 
         self.gamma = gamma
 
@@ -17,6 +18,9 @@ class RDPG:
         self.critic = Crtic(obs_dim, action_dim)
         self.target_critic = Crtic(obs_dim, action_dim)
         self.target_critic.load_state_dict(self.critic.state_dict())
+
+        self.actor_loss = optim.Adam(self.critic.parameters(), lr=actor_lr)
+        self.critic_loss = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
         self.criterion = nn.MSELoss()
 
@@ -56,5 +60,9 @@ class RDPG:
 
         q_values, _ = self.critic(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
         critic_loss = self.criterion(q_values, y)
+
+        self.critic_loss.zero_grad()
+        critic_loss.backward()
+        self.critic_loss.step()
 
 
