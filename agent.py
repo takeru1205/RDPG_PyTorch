@@ -65,6 +65,13 @@ class RDPG:
         critic_loss.backward()
         self.critic_optimizer.step()
 
+        action, _ = self.actor(obs_tensor, hidden)
+        actor_loss = self.critic(torch.cat([obs_tensor, action], dim=2), hidden)[0].mean()
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
+
 
 
 
