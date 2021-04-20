@@ -1,11 +1,15 @@
 import torch
+import torch.nn as nn
 
 from buffer import ReplayBuffer
 from model import Actor, Crtic
 
 
 class RDPG:
-    def __init__(self, obs_dim, action_dim, buffer_size=100):
+    def __init__(self, obs_dim, action_dim, gamma=0.98, buffer_size=100):
+
+        self.gamma = gamma
+
         self.buffer = ReplayBuffer(buffer_size)
         self.actor = Actor(obs_dim, action_dim)
         self.target_actor = Actor(obs_dim, action_dim)
@@ -13,6 +17,8 @@ class RDPG:
         self.critic = Crtic(obs_dim, action_dim)
         self.target_critic = Crtic(obs_dim, action_dim)
         self.target_critic.load_state_dict(self.critic.state_dict())
+
+        self.criterion = nn.MSELoss()
 
     def store_episode(self, episode):
         self.buffer.add(episode)
@@ -37,9 +43,8 @@ class RDPG:
         next_obs_tensor = obs_tensor[:, 1: :]  # Shape(batch_size, episode_length, 3)
         obs_tensor = obs_tensor[:, :-1, :]  # Shape(batch_size, episode_length, 3)
         action_tensor = torch.FloatTensor(action_batch)  # Shape(batch_size, episode_length, 1)
-        reward_tensor = torch.FloatTensor(reward_batch)  # Shape(batch_size, episode_length, 1)
-        done_tensor = torch.FloatTensor(done_batch)  # Shape(batch_size, episode_length, 1)
-
+        reward_tensor = torch.FloatTensor(reward_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
+        done_tensor = torch.FloatTensor(done_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
 
         hidden = (torch.randn(1, batch_size, 64),
                   torch.randn(1, batch_size, 64))  # Shape(1, batch_size, hidden_size)
@@ -47,4 +52,9 @@ class RDPG:
         with torch.no_grad():
             target_action, _ = self.target_actor(next_obs_tensor, hidden)  # Shape(batch_size, episode_length, 1)
             target_q, _ = self.target_critic(torch.cat([next_obs_tensor, target_action], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
+            y = reward_tensor + self.gamma * target_q  # Shape(batch_size, episode_length, 1)
+
+        q_values, _ = self.critic(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
+        critic_loss = self.criterion(q_values, y)
+
 
