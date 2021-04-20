@@ -28,5 +28,5 @@ for e in range(5):
     print(cumulative_reward)
     buffer.add([obs_seq, action_seq, reward_seq, info_seq])
 
-
+print(len(buffer))
 
