@@ -17,5 +17,8 @@ class RDPG:
         return action[0, 0].detach().numpy(), hidden_out
 
     def update(self, batch_size=10):
-        print(batch_size)
+        if len(self.buffer) < batch_size:
+            return 
+        batch = self.buffer.replay(batch_size=batch_size)
+        print(batch)
 
