@@ -2,13 +2,13 @@ import gym
 import torch
 import numpy as np
 
-from buffer import ReplayBuffer
 from model import Actor
+from agent import RDPG
 
 
 env = gym.make('Pendulum-v0')
 
-buffer = ReplayBuffer()
+agent = RDPG()
 
 actor = Actor(env.observation_space.shape[0], env.action_space.shape[0])
 
@@ -24,7 +24,6 @@ for e in range(5):
               torch.randn(1, 1, 3))
     for t in range(env.spec.max_episode_steps):
         action, hidden = actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden)
-        print(action)
 
         new_obs, reward, info, _ = env.step(action[0, 0].detach().numpy() * 2)
         obs_seq[:, t+1, :] = torch.tensor(new_obs)
@@ -36,7 +35,7 @@ for e in range(5):
         cumulative_reward += reward
 
     print(cumulative_reward)
-    buffer.add([obs_seq, action_seq, reward_seq, info_seq])
+    agent.store_episode([obs_seq, action_seq, reward_seq, info_seq])
 
-print(len(buffer))
+print(len(agent.buffer))
 
