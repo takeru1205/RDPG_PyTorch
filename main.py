@@ -35,5 +35,7 @@ for e in range(5):
     print(cumulative_reward)
     agent.store_episode([obs_seq, action_seq, reward_seq, info_seq])
 
+    agent.update()
+
 print(len(agent.buffer))
 

@@ -16,3 +16,6 @@ class RDPG:
         action, hidden_out = self.actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden_in)
         return action[0, 0].detach().numpy(), hidden_out
 
+    def update(self, batch_size=10):
+        print(batch_size)
+
