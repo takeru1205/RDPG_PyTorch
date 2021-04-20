@@ -23,7 +23,7 @@ for e in range(5):
     for t in range(env.spec.max_episode_steps):
         action, hidden = agent.get_action(obs, hidden)
 
-        new_obs, reward, info, _ = env.step(action * 2)
+        new_obs, reward, info, _ = env.step(action * env.action_space.high[0])
         obs_seq[:, t+1, :] = torch.tensor(new_obs)
         action_seq.append(action)
         reward_seq.append(reward)
