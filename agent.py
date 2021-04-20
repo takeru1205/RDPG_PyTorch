@@ -7,9 +7,10 @@ from model import Actor, Crtic
 
 
 class RDPG:
-    def __init__(self, obs_dim, action_dim, gamma=0.98, actor_lr=1e-4, critic_lr=1e-3, buffer_size=100):
+    def __init__(self, obs_dim, action_dim, gamma=0.98, tau=0.001, actor_lr=1e-4, critic_lr=1e-3, buffer_size=100):
 
         self.gamma = gamma
+        self.tau = tau
 
         self.buffer = ReplayBuffer(buffer_size)
         self.actor = Actor(obs_dim, action_dim)
@@ -30,6 +31,12 @@ class RDPG:
     def get_action(self, obs, hidden_in):
         action, hidden_out = self.actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden_in)
         return action[0, 0].detach().numpy(), hidden_out
+
+    def soft_update(self, target_net, net):
+        for target_param, param in zip(target_net.parameters(), net.parameters()):
+            target_param.data.copy_(
+                self.tau * param.data + (1 - self.tau) * target_param.data
+            )
 
     def update(self, batch_size=10):
         if len(self.buffer) < batch_size:
@@ -71,6 +78,9 @@ class RDPG:
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+
+        self.soft_update(self.target_critic, self.critic)
+        self.soft_update(self.target_actor, self.actor)
 
 
 
