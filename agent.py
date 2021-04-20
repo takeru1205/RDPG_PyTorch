@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -37,7 +38,8 @@ class RDPG:
         if epoch < self.initial_act:
             return self.env.action_space.sample() / self.env.action_space.high[0], None
         action, hidden_out = self.actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden_in)
-        return action[0, 0].detach().numpy(), hidden_out
+        action = action[0, 0].detach().numpy() + np.random.normal(0, 0.1)
+        return np.clip(action, -1, 1), hidden_out
 
     def soft_update(self, target_net, net):
         for target_param, param in zip(target_net.parameters(), net.parameters()):
