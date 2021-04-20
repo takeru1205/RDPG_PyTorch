@@ -1,7 +1,7 @@
 import torch
 
 from buffer import ReplayBuffer
-from model import Actor
+from model import Actor, Crtic
 
 
 class RDPG:
@@ -9,6 +9,8 @@ class RDPG:
         self.buffer = ReplayBuffer(buffer_size)
         self.actor = Actor(obs_dim, action_dim)
         self.target_actor = Actor(obs_dim, action_dim).load_state_dict(self.actor.state_dict())
+        self.critic = Crtic(obs_dim, action_dim)
+        self.target_critic = Crtic(obs_dim, action_dim).load_state_dict(self.critic.state_dict())
 
     def store_episode(self, episode):
         self.buffer.add(episode)

@@ -15,3 +15,19 @@ class Actor(nn.Module):
         x = F.relu(self.fc1(x))
         x = torch.tanh(self.fc2(x))
         return x, hidden
+
+class Crtic(nn.Module):
+    def __init__(self, obs_dim, action_dim, hidden_size=64):
+        super(Crtic, self).__init__()
+        self.lstm = nn.LSTM(input_size=obs_dim+action_dim,
+                            hidden_size=hidden_size,
+                            batch_first=True)
+        self.fc1 = nn.Linear(hidden_size, 128)
+        self.fc2 = nn.Linear(128, 1)
+
+    def forward(self, history, hidden):
+        x, hidden = self.lstm(history, hidden)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x, hidden
+
