@@ -1,4 +1,5 @@
 from collections import deque
+from random import sample
 
 class ReplayBuffer:
     def __init__(self, max_size=100):
@@ -6,6 +7,10 @@ class ReplayBuffer:
 
     def add(self, episode):
         self.buffer.append(episode)
+
+    def replay(self, batch_size=10):
+        batch = sample(self.buffer, batch_size)
+        return batch
 
     def __len__(self):
         return len(self.buffer)
