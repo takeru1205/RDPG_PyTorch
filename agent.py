@@ -8,6 +8,7 @@ class RDPG:
     def __init__(self, obs_dim, action_dim, buffer_size=100):
         self.buffer = ReplayBuffer(buffer_size)
         self.actor = Actor(obs_dim, action_dim)
+        self.target_actor = Actor(obs_dim, action_dim).load_state_dict(self.actor.state_dict())
 
     def store_episode(self, episode):
         self.buffer.add(episode)
@@ -20,5 +21,4 @@ class RDPG:
         if len(self.buffer) < batch_size:
             return 
         batch = self.buffer.replay(batch_size=batch_size)
-        print(batch)
 
