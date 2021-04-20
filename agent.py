@@ -45,5 +45,6 @@ class RDPG:
                   torch.randn(1, batch_size, 64))  # Shape(1, batch_size, hidden_size)
 
         with torch.no_grad():
-            target_q, _ = self.target_critic(torch.cat([obs_tensor, action_tensor], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
+            target_action, _ = self.target_actor(next_obs_tensor, hidden)  # Shape(batch_size, episode_length, 1)
+            target_q, _ = self.target_critic(torch.cat([next_obs_tensor, target_action], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
 
