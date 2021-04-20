@@ -8,9 +8,9 @@ from agent import RDPG
 
 env = gym.make('Pendulum-v0')
 
-agent = RDPG(env.observation_space.shape[0], env.action_space.shape[0])
+agent = RDPG(env)
 
-for e in range(5):
+for e in range(300):
     cumulative_reward = 0
     obs = env.reset()
     obs_seq = torch.zeros((1, env.spec.max_episode_steps+1, 3))
@@ -21,7 +21,7 @@ for e in range(5):
     hidden = (torch.randn(1, 1, 3),
               torch.randn(1, 1, 3))
     for t in range(env.spec.max_episode_steps):
-        action, hidden = agent.get_action(obs, hidden)
+        action, hidden = agent.get_action(obs, hidden, e)
 
         new_obs, reward, info, _ = env.step(action * env.action_space.high[0])
         obs_seq[:, t+1, :] = torch.tensor(new_obs)
@@ -36,6 +36,4 @@ for e in range(5):
     agent.store_episode([obs_seq, action_seq, reward_seq, info_seq])
 
     agent.update()
-
-print(len(agent.buffer))
 

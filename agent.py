@@ -7,17 +7,22 @@ from model import Actor, Crtic
 
 
 class RDPG:
-    def __init__(self, obs_dim, action_dim, gamma=0.98, tau=0.001, actor_lr=1e-4, critic_lr=1e-3, buffer_size=100):
+    def __init__(self, env, initial_act=30, gamma=0.98, tau=0.001, actor_lr=1e-4, critic_lr=1e-3, buffer_size=100):
 
+        self.env = env
         self.gamma = gamma
         self.tau = tau
+        self.initial_act = initial_act
+
+        self.obs_dim = env.observation_space.shape[0]
+        self.action_dim = env.action_space.shape[0]
 
         self.buffer = ReplayBuffer(buffer_size)
-        self.actor = Actor(obs_dim, action_dim)
-        self.target_actor = Actor(obs_dim, action_dim)
+        self.actor = Actor(self.obs_dim, self.action_dim)
+        self.target_actor = Actor(self.obs_dim, self.action_dim)
         self.target_actor.load_state_dict(self.actor.state_dict())
-        self.critic = Crtic(obs_dim, action_dim)
-        self.target_critic = Crtic(obs_dim, action_dim)
+        self.critic = Crtic(self.obs_dim, self.action_dim)
+        self.target_critic = Crtic(self.obs_dim, self.action_dim)
         self.target_critic.load_state_dict(self.critic.state_dict())
 
         self.actor_optimizer = optim.Adam(self.critic.parameters(), lr=actor_lr)
@@ -28,7 +33,9 @@ class RDPG:
     def store_episode(self, episode):
         self.buffer.add(episode)
 
-    def get_action(self, obs, hidden_in):
+    def get_action(self, obs, hidden_in, epoch):
+        if epoch < self.initial_act:
+            return self.env.action_space.sample() / self.env.action_space.high[0], None
         action, hidden_out = self.actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden_in)
         return action[0, 0].detach().numpy(), hidden_out
 
