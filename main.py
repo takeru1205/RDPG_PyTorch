@@ -1,5 +1,7 @@
 import gym
 
+from buffer import ReplayBuffer
+
 
 env = gym.make('Pendulum-v0')
 
