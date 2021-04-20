@@ -9,6 +9,8 @@ class ReplayBuffer:
         self.buffer.append(episode)
 
     def replay(self, batch_size=10):
+        if len(self.buffer) < batch_size:
+            return
         batch = sample(self.buffer, batch_size)
         return batch
 
