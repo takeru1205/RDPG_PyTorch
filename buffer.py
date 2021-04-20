@@ -7,3 +7,6 @@ class ReplayBuffer:
     def add(self, episode):
         self.buffer.append(episode)
 
+    def __len__(self):
+        return len(self.buffer)
+
