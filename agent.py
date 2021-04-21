@@ -26,7 +26,7 @@ class RDPG:
         self.target_critic = Crtic(self.obs_dim, self.action_dim)
         self.target_critic.load_state_dict(self.critic.state_dict())
 
-        self.actor_optimizer = optim.Adam(self.critic.parameters(), lr=actor_lr)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
         self.criterion = nn.MSELoss()
@@ -34,13 +34,14 @@ class RDPG:
     def store_episode(self, episode):
         self.buffer.add(episode)
 
-    def get_action(self, obs, hidden_in, epoch=None):
+    def get_action(self, obs, action, hidden_in, epoch=None):
         if epoch is not None and epoch < self.initial_act:
             return self.env.action_space.sample() / self.env.action_space.high[0], None
-        action, hidden_out = self.actor(torch.tensor(obs).to(torch.float).reshape(1, 1, 3), hidden_in)
+        history = torch.cat([torch.FloatTensor(obs), torch.FloatTensor(action)]).to(torch.float).reshape(1, 1, self.obs_dim+self.action_dim)
+        action, hidden_out = self.actor(history, hidden_in)
         if epoch is None:
             return action[0, 0].detach().numpy(), hidden_out
-        action = action[0, 0].detach().numpy() + np.random.normal(0, 0.1)
+        action = action[0, 0].detach().numpy() + np.random.normal(0, 0.3)
         return np.clip(action, -1, 1), hidden_out
 
     def soft_update(self, target_net, net):
@@ -65,6 +66,8 @@ class RDPG:
         next_obs_tensor = obs_tensor[:, 1: :]  # Shape(batch_size, episode_length, 3)
         obs_tensor = obs_tensor[:, :-1, :]  # Shape(batch_size, episode_length, 3)
         action_tensor = torch.FloatTensor(action_batch)  # Shape(batch_size, episode_length, 1)
+        next_action_tensor = action_tensor[:, 1:, :]
+        action_tensor = action_tensor[:, :-1, :]
         reward_tensor = torch.FloatTensor(reward_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
         done_tensor = torch.FloatTensor(done_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
 
@@ -72,9 +75,9 @@ class RDPG:
                   torch.randn(1, batch_size, 64))  # Shape(1, batch_size, hidden_size)
 
         with torch.no_grad():
-            target_action, _ = self.target_actor(next_obs_tensor, hidden)  # Shape(batch_size, episode_length, 1)
+            target_action, _ = self.target_actor(torch.cat([next_obs_tensor, next_action_tensor], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
             target_q, _ = self.target_critic(torch.cat([next_obs_tensor, target_action], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
-            y = reward_tensor + self.gamma * target_q  # Shape(batch_size, episode_length, 1)
+            y = reward_tensor + done_tensor * self.gamma * target_q  # Shape(batch_size, episode_length, 1)
 
         q_values, _ = self.critic(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
         critic_loss = self.criterion(q_values, y)
@@ -83,7 +86,7 @@ class RDPG:
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        action, _ = self.actor(obs_tensor, hidden)
+        action, _ = self.actor(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
         actor_loss = self.critic(torch.cat([obs_tensor, action], dim=2), hidden)[0].mean()
 
         self.actor_optimizer.zero_grad()
