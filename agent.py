@@ -8,7 +8,7 @@ from model import Actor, Crtic
 
 
 class RDPG:
-    def __init__(self, env, initial_act=30, gamma=0.98, tau=0.001, actor_lr=1e-4, critic_lr=1e-3, reward_scale=1., buffer_size=100):
+    def __init__(self, env, initial_act=30, gamma=0.98, tau=0.01, actor_lr=1e-4, critic_lr=1e-3, reward_scale=1., buffer_size=100, writer=None):
 
         self.env = env
         self.gamma = gamma
@@ -32,6 +32,8 @@ class RDPG:
 
         self.criterion = nn.MSELoss()
 
+        self.writer = writer
+
     def store_episode(self, episode):
         self.buffer.add(episode)
 
@@ -49,7 +51,7 @@ class RDPG:
                 self.tau * param.data + (1 - self.tau) * target_param.data
             )
 
-    def update(self, batch_size=10):
+    def update(self, epoch, batch_size=10):
         if len(self.buffer) < batch_size:
             return 
         batch = self.buffer.replay(batch_size=batch_size)
@@ -94,6 +96,10 @@ class RDPG:
 
         self.soft_update(self.target_critic, self.critic)
         self.soft_update(self.target_actor, self.actor)
+
+        if self.writer:
+            self.writer.add_scalar("Train/ActorLoss", actor_loss.item(), epoch)
+            self.writer.add_scalar("Train/CriticLoss", critic_loss.item(), epoch)
 
 
 
