@@ -34,12 +34,10 @@ class RDPG:
     def store_episode(self, episode):
         self.buffer.add(episode)
 
-    def get_action(self, obs, action, hidden_in, epoch=None):
-        if epoch is not None and epoch < self.initial_act:
-            return self.env.action_space.sample() / self.env.action_space.high[0], None
+    def get_action(self, obs, action, hidden_in, train=False):
         history = torch.cat([torch.FloatTensor(obs), torch.FloatTensor(action)]).to(torch.float).reshape(1, 1, self.obs_dim+self.action_dim)
         action, hidden_out = self.actor(history, hidden_in)
-        if epoch is None:
+        if not train:
             return action[0, 0].detach().numpy(), hidden_out
         action = action[0, 0].detach().numpy() + np.random.normal(0, 0.3)
         return np.clip(action, -1, 1), hidden_out
