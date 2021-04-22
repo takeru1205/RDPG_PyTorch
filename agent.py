@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from buffer import ReplayBuffer
+from buffer import PrioritizedReplayBuffer
 from model import Actor, Crtic
 
 
@@ -20,7 +20,7 @@ class RDPG:
         self.obs_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.shape[0]
 
-        self.buffer = ReplayBuffer(buffer_size)
+        self.buffer = PrioritizedReplayBuffer(buffer_size)
         self.actor = Actor(self.obs_dim, self.action_dim)
         self.target_actor = Actor(self.obs_dim, self.action_dim)
         self.target_actor.load_state_dict(self.actor.state_dict())
@@ -36,7 +36,7 @@ class RDPG:
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
-        self.criterion = nn.MSELoss()
+        self.criterion = nn.MSELoss(reduction='none')
 
         self.writer = writer
 
@@ -57,10 +57,12 @@ class RDPG:
                 self.tau * param.data + (1 - self.tau) * target_param.data
             )
 
-    def update(self, epoch, batch_size=10):
+    def update(self, epoch, batch_size=10, beta=0.4):
         if len(self.buffer) < batch_size:
             return 
-        batch = self.buffer.replay(batch_size=batch_size)
+        batch, indices, weights = self.buffer.replay(batch_size=batch_size, beta=beta)
+        indices = indices.to(self.device)
+        weights = weights.to(self.device)
 
         obs_batch, action_batch, reward_batch, done_batch = [], [], [], []
         for episode in batch:
@@ -87,14 +89,14 @@ class RDPG:
             y = reward_tensor * self.reward_scale + done_tensor * self.gamma * target_q  # Shape(batch_size, episode_length, 1)
 
         q_values, _ = self.critic(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
-        critic_loss = self.criterion(q_values, y)
+        critic_loss = (weights * self.criterion(q_values, y).mean(1).squeeze()).mean()
 
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
 
         action, _ = self.actor(torch.cat([obs_tensor, action_tensor], dim=2), hidden)
-        actor_loss = -self.critic(torch.cat([obs_tensor, action], dim=2), hidden)[0].mean()
+        actor_loss = -(weights * self.critic(torch.cat([obs_tensor, action], dim=2), hidden)[0].mean(1).squeeze()).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -102,6 +104,9 @@ class RDPG:
 
         self.soft_update(self.target_critic, self.critic)
         self.soft_update(self.target_actor, self.actor)
+
+        # Priority update which replayed
+        self.buffer.update_priority(indices.cpu(), (y.mean(1).squeeze() - q_values.mean(1).squeeze()).abs().detach().cpu().numpy())
 
         if self.writer:
             self.writer.add_scalar("Train/ActorLoss", actor_loss.item(), epoch)

@@ -39,6 +39,12 @@ for e in range(30):
     # agent.update()
 
 
+beta_begin = 0.4
+beta_end = 1.0
+beta_decay = 500000
+beta_func = lambda step: min(beta_end, beta_begin + (beta_end - beta_begin) * (step / beta_decay))
+total_step = 1
+
 # Train
 print('Train Sequence Start')
 for e in range(300):
@@ -66,12 +72,13 @@ for e in range(300):
 
         obs = new_obs
         cumulative_reward += reward
+        total_step += 1
 
     print(f'Episode: {e:>3}, Reward: {cumulative_reward:>8.2f}, Avearage Action{np.array(action_seq).mean():>9.5f}')
     writer.add_scalar("Train/Reward", cumulative_reward, e)
     agent.store_episode([obs_seq, action_seq, reward_seq, info_seq])
 
-    agent.update(e)
+    agent.update(e, beta=beta_func(total_step))
 
 # Test
 print('Test Sequence Start')
