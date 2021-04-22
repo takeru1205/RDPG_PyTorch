@@ -11,6 +11,7 @@ env = gym.make('Pendulum-v0')
 
 writer = SummaryWriter(log_dir="./logs")
 agent = RDPG(env, writer=writer)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Initial Act
 print('Initial Act Sequence Start')
@@ -49,8 +50,8 @@ for e in range(300):
     action_seq = [action]
     reward_seq = []
     info_seq = []
-    hidden = (torch.randn(1, 1, 64),
-              torch.randn(1, 1, 64))
+    hidden = (torch.randn(1, 1, 64).to(device),
+              torch.randn(1, 1, 64).to(device))
     for t in range(env.spec.max_episode_steps):
         action, hidden = agent.get_action(obs, action, hidden, e, train=True)
 
@@ -78,8 +79,8 @@ for e in range(5):
     cumulative_reward = 0
     obs = env.reset()
     action = env.action_space.sample() / env.action_space.high[0]
-    hidden = (torch.randn(1, 1, 3),
-              torch.randn(1, 1, 3))
+    hidden = (torch.randn(1, 1, 3).to(device),
+              torch.randn(1, 1, 3).to(device))
     for t in range(env.spec.max_episode_steps):
         action, hidden = agent.get_action(obs, action, e, hidden)
 

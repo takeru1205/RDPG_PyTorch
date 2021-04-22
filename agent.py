@@ -15,6 +15,7 @@ class RDPG:
         self.tau = tau
         self.initial_act = initial_act
         self.reward_scale = reward_scale
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self.obs_dim = env.observation_space.shape[0]
         self.action_dim = env.action_space.shape[0]
@@ -27,6 +28,11 @@ class RDPG:
         self.target_critic = Crtic(self.obs_dim, self.action_dim)
         self.target_critic.load_state_dict(self.critic.state_dict())
 
+        self.actor = self.actor.to(self.device)
+        self.critic = self.critic.to(self.device)
+        self.target_actor = self.target_actor.to(self.device)
+        self.target_critic = self.target_critic.to(self.device)
+
         self.actor_optimizer = optim.Adam(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
 
@@ -38,11 +44,11 @@ class RDPG:
         self.buffer.add(episode)
 
     def get_action(self, obs, action, hidden_in, epoch, train=False):
-        history = torch.cat([torch.FloatTensor(obs), torch.FloatTensor(action)]).to(torch.float).reshape(1, 1, self.obs_dim+self.action_dim)
+        history = torch.cat([torch.FloatTensor(obs), torch.FloatTensor(action)]).to(torch.float).reshape(1, 1, self.obs_dim+self.action_dim).to(self.device)
         action, hidden_out = self.actor(history, hidden_in)
         if not train:
-            return action[0, 0].detach().numpy(), hidden_out
-        action = action[0, 0].detach().numpy() + np.random.normal(0, 0.1)
+            return action[0, 0].detach().cpu().numpy(), hidden_out
+        action = action[0, 0].detach().cpu().numpy() + np.random.normal(0, 0.1)
         return np.clip(action, -1, 1), hidden_out
 
     def soft_update(self, target_net, net):
@@ -63,17 +69,17 @@ class RDPG:
             reward_batch.append(episode[2])
             done_batch.append(episode[3])
 
-        obs_tensor = torch.cat(obs_batch).reshape(batch_size, *obs_batch[0].shape[1:])  # Shape(batch_size, episode_length+1, 3)
+        obs_tensor = torch.cat(obs_batch).reshape(batch_size, *obs_batch[0].shape[1:]).to(self.device)  # Shape(batch_size, episode_length+1, 3)
         next_obs_tensor = obs_tensor[:, 1: :]  # Shape(batch_size, episode_length, 3)
         obs_tensor = obs_tensor[:, :-1, :]  # Shape(batch_size, episode_length, 3)
-        action_tensor = torch.FloatTensor(action_batch)  # Shape(batch_size, episode_length, 1)
+        action_tensor = torch.FloatTensor(action_batch).to(self.device)  # Shape(batch_size, episode_length, 1)
         next_action_tensor = action_tensor[:, 1:, :]
         action_tensor = action_tensor[:, :-1, :]
-        reward_tensor = torch.FloatTensor(reward_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
-        done_tensor = torch.FloatTensor(done_batch).unsqueeze(dim=-1)  # Shape(batch_size, episode_length, 1)
+        reward_tensor = torch.FloatTensor(reward_batch).unsqueeze(dim=-1).to(self.device)  # Shape(batch_size, episode_length, 1)
+        done_tensor = torch.FloatTensor(done_batch).unsqueeze(dim=-1).to(self.device)  # Shape(batch_size, episode_length, 1)
 
-        hidden = (torch.randn(1, batch_size, 64),
-                  torch.randn(1, batch_size, 64))  # Shape(1, batch_size, hidden_size)
+        hidden = (torch.randn(1, batch_size, 64).to(self.device),
+                  torch.randn(1, batch_size, 64).to(self.device))  # Shape(1, batch_size, hidden_size)
 
         with torch.no_grad():
             target_action, _ = self.target_actor(torch.cat([next_obs_tensor, next_action_tensor], dim=2), hidden)  # Shape(batch_size, episode_length, 1)
