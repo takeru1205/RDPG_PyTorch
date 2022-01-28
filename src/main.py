@@ -7,7 +7,7 @@ from model import Actor
 from agent import RDPG
 
 
-env = gym.make('Pendulum-v0')
+env = gym.make('Pendulum-v1')
 
 writer = SummaryWriter(log_dir="./logs")
 agent = RDPG(env, writer=writer)
